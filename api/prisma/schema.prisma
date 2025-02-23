@@ -1,0 +1,53 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL") // SQLite URL will be in .env file
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  role      UserRole
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  recipes   Recipe[]
+  actions   UserRecipeAction[]
+}
+
+model Recipe {
+  id            Int      @id @default(autoincrement())
+  authorId      Int
+  title         String
+  subtitle      String
+  description   String
+  instructions  String
+  ingredients   Json
+  previewMedia  Json
+  budget        Int
+  prepTime      Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  author        User     @relation(fields: [authorId], references: [id])
+  actions   UserRecipeAction[]
+}
+
+model UserRecipeAction {
+  id            Int    @id @default(autoincrement())
+  userId        Int
+  recipeId      Int
+  isBookmarked  Boolean
+  readCounter   Int
+  user          User   @relation(fields: [userId], references: [id])
+  recipe        Recipe @relation(fields: [recipeId], references: [id])
+}
+
+enum UserRole {
+  user
+  author
+  admin
+}
