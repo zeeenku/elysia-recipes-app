@@ -1,25 +1,38 @@
 import { Elysia, t } from "elysia";
 import { PrismaClient, UserRole } from '@prisma/client'
 import { checkGuest, generateAuthToken } from "../utils/auth";
-import { verifyHash } from "../utils/hash";
+import { hashString, verifyHash } from "../utils/hash";
 
 const prisma = new PrismaClient()
 
 const loginBody = t.Object({
-	email: t.String(),
-  //.minLength(1),
-	password: t.String()
-  //.minLength(1)
+	email: t.String({
+    format: 'email'
+}),
+	password: t.String({
+    minLength : 8
+  })
+})
+
+
+const registerBody = t.Object({
+	email: t.String({
+    format: 'email'
+  }),
+  name: t.String({
+    minLength : 1
+  }),
+	password: t.String({
+    minLength : 8
+  })
 })
 
 
 const AuthModel = new Elysia()
     .model({
-        'auth.login': loginBody
+        'auth.login': loginBody,
+        'auth.register': registerBody
     })
-
-const models = AuthModel.models
-
 
 
 
@@ -29,7 +42,31 @@ const app = new Elysia()
 .use(AuthModel)
 
 .get("/", () => "Hello Elysia")
-app.post('/login', (req) => checkGuest(req, async ()=>{
+
+
+.post('/register', (req) => checkGuest(req, async ()=>{
+  const { name, email, password } = req.body
+  const hashedPassword = await hashString(password)
+
+  const userExists = await prisma.user.findUnique({ where: { email } })
+  if (userExists) {
+    return { status: 401, message: 'a User already exists with this email' }
+  }
+  
+  const user = await prisma.user.create({
+    data: { name, email, password: hashedPassword, role: UserRole.user },
+  })
+
+  const token = generateAuthToken(user.id)
+
+  return { message: 'User created successfully', user, token }
+}),
+{
+  body: 'auth.register'
+})
+
+
+.post('/login', (req) => checkGuest(req, async ()=>{
   const { email, password } = req.body;
 
   const user = await prisma.user.findUnique({ where: { email } })
